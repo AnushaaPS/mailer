@@ -53,7 +53,7 @@ def send_email_single(to_email, name, attachment_paths, email_body, email_subjec
     except Exception as e:
         return f"❌ Failed to send email to {to_email}. Error: {e}"
     
-def send_email_dynamic(to_email, name, attachment_paths, email_body, email_subject, outlook_user, outlook_password):
+def send_email_dynamic(to_email, name, attachment_paths):
     try:
         server = smtplib.SMTP("smtp.office365.com", 587)
         server.starttls()
@@ -63,24 +63,25 @@ def send_email_dynamic(to_email, name, attachment_paths, email_body, email_subje
         msg["From"] = outlook_user
         msg["To"] = to_email
         msg["Subject"] = email_subject if email_subject else "No Subject"
+        
         personalized_body = email_body.replace("[Name]", name) if email_body else ""
         msg.attach(MIMEText(personalized_body, "plain"))
         
         for file_path in attachment_paths:
-            clean_path = str(file_path).strip().strip('"').strip("'")
-            if os.path.exists(clean_path):
-                with open(clean_path, "rb") as attachment:
+            full_path = os.path.join(os.getcwd(), file_path)  # Convert to full path
+            if os.path.exists(full_path):
+                with open(full_path, "rb") as attachment:
                     part = MIMEBase("application", "octet-stream")
                     part.set_payload(attachment.read())
-                encoders.encode_base64(part)
-                part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(clean_path)}")
-                msg.attach(part)
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(file_path)}")
+                    msg.attach(part)
             else:
-                st.warning(f"⚠️ Attachment not found: {clean_path}")
-
+                st.warning(f"⚠️ Attachment not found: {file_path}")
+        
         server.sendmail(outlook_user, to_email, msg.as_string())
         server.quit()
-        return f"✅ Email sent to {to_email} with {len(attachment_paths)} attachment(s)."
+        return f"✅ Email sent to {to_email} with {len(attachment_paths)} attachments."
     except Exception as e:
         return f"❌ Failed to send email to {to_email}. Error: {e}"
 
@@ -136,33 +137,32 @@ elif app_mode == "Dynamic Attachments":
         if not outlook_user or not outlook_password:
             st.error("⚠️ Please enter your Outlook credentials.")
         elif not uploaded_excel:
-            st.error("⚠️ Please upload Excel file.")
+            st.error("⚠️ Please upload an Excel file.")
         else:
-            df = pd.read_excel(uploaded_excel)
+            recipients = pd.read_excel(uploaded_excel).dropna(subset=["Email"])
             results = []
-            for i, row in df.iterrows():
+            progress_bar = st.progress(0)
+            total_recipients = len(recipients)
+        
+            for index, row in recipients.iterrows():
                 name = row.get("Name", "User")
                 email = row["Email"]
+            
                 attachment_paths = []
-
-                for col in df.columns:
+                for col in recipients.columns:
                     if "Attachment" in col and isinstance(row[col], str) and row[col].strip():
-                        file_path = str(row[col]).strip().strip('"').strip("'")
+                        file_path = os.path.join(os.getcwd(), row[col])  # Convert to full path
                         if os.path.exists(file_path):
-                            attachment_paths.append(file_path)
+                            attachment_paths.append(row[col])
                         else:
-                            st.warning(f"⚠️ Attachment not found: {file_path}")
+                            st.warning(f"⚠️ Attachment not found: {row[col]}")
 
                 if attachment_paths:
-                    result = send_email_dynamic(email, name, attachment_paths, email_body, email_subject, outlook_user, outlook_password)
+                    result = send_email_dynamic(email, name, attachment_paths)
                 else:
                     result = f"⚠️ No valid attachments found for {email}, skipping."
                 results.append(result)
-
+                progress_bar.progress((index + 1) / total_recipients)
+        
             for res in results:
                 st.write(res)
-
-
-
-
-
