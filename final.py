@@ -53,33 +53,32 @@ def send_email_single(to_email, name, attachment_paths, email_body, email_subjec
     except Exception as e:
         return f"❌ Failed to send email to {to_email}. Error: {e}"
     
-def send_email_dynamic(to_email, name, attachment_paths, email_body, email_subject, outlook_user, outlook_password):
+def send_email_dynamic(to_email, name, attachment_paths):
     try:
         server = smtplib.SMTP("smtp.office365.com", 587)
         server.starttls()
         server.login(outlook_user, outlook_password)
-
+        
         msg = MIMEMultipart()
         msg["From"] = outlook_user
         msg["To"] = to_email
         msg["Subject"] = email_subject if email_subject else "No Subject"
-
+        
         personalized_body = email_body.replace("[Name]", name) if email_body else ""
         msg.attach(MIMEText(personalized_body, "plain"))
-
-    for file_path in attachment_paths:
-    full_path = os.path.abspath(file_path.strip().replace('"', '').replace("'", ''))
-    if os.path.exists(full_path):
-        with open(full_path, "rb") as attachment:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(attachment.read())
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(full_path)}")
-            msg.attach(part)
-    else:
-        st.warning(f"⚠️ Attachment not found: {full_path}")
-
-
+        
+        for file_path in attachment_paths:
+            full_path = os.path.join(os.getcwd(), file_path)  # Convert to full path
+            if os.path.exists(full_path):
+                with open(full_path, "rb") as attachment:
+                    part = MIMEBase("application", "octet-stream")
+                    part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(file_path)}")
+                    msg.attach(part)
+            else:
+                st.warning(f"⚠️ Attachment not found: {file_path}")
+        
         server.sendmail(outlook_user, to_email, msg.as_string())
         server.quit()
         return f"✅ Email sent to {to_email} with {len(attachment_paths)} attachments."
@@ -144,29 +143,26 @@ elif app_mode == "Dynamic Attachments":
             results = []
             progress_bar = st.progress(0)
             total_recipients = len(recipients)
-
+        
             for index, row in recipients.iterrows():
                 name = row.get("Name", "User")
                 email = row["Email"]
-
+            
                 attachment_paths = []
                 for col in recipients.columns:
-    if "Attachment" in col and isinstance(row[col], str) and row[col].strip():
-        full_path = os.path.abspath(row[col].strip().replace('"', '').replace("'", ''))
-        if os.path.exists(full_path):
-            attachment_paths.append(full_path)
-        else:
-            st.warning(f"⚠️ Attachment not found: {full_path}")
-
+                    if "Attachment" in col and isinstance(row[col], str) and row[col].strip():
+                        file_path = os.path.join(os.getcwd(), row[col])  # Convert to full path
+                        if os.path.exists(file_path):
+                            attachment_paths.append(row[col])
+                        else:
+                            st.warning(f"⚠️ Attachment not found: {row[col]}")
 
                 if attachment_paths:
-                    result = send_email_dynamic(email, name, attachment_paths, email_body, email_subject, outlook_user, outlook_password)
+                    result = send_email_dynamic(email, name, attachment_paths)
                 else:
                     result = f"⚠️ No valid attachments found for {email}, skipping."
                 results.append(result)
                 progress_bar.progress((index + 1) / total_recipients)
-
+        
             for res in results:
                 st.write(res)
-
-
