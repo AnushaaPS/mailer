@@ -11,8 +11,8 @@ def create_sample_excel_dynamic():
     sample_data = {
         "Name": ["Anushaa", "Abi"],
         "Email": ["anushaa@example.com", "abi@example.com"],
-        "Attachment1": ["", "C:/users/yourname/file1.pdf"],
-        "Attachment2": ["", "C:/users/yourname/file2.docx"]
+        "Attachment1": ["file1.pdf", "report.docx"],
+        "Attachment2": ["presentation.pptx", ""]
     }
     df = pd.DataFrame(sample_data)
     df.to_excel("sample_dynamic_recipients.xlsx", index=False)
@@ -179,5 +179,6 @@ elif app_mode == "Dynamic Attachments":
 
             for res in results:
                 st.write(res)
+
 
 
