@@ -132,37 +132,52 @@ if app_mode == "Same Attachments for All":
 
 elif app_mode == "Dynamic Attachments":
     uploaded_excel = st.file_uploader("📂 Upload Excel File", type=["xlsx"])
-    
+    uploaded_files = st.file_uploader("📎 Upload All Possible Attachments", accept_multiple_files=True)
+
     if st.button("🚀 Send Emails"):
         if not outlook_user or not outlook_password:
             st.error("⚠️ Please enter your Outlook credentials.")
         elif not uploaded_excel:
             st.error("⚠️ Please upload an Excel file.")
+        elif not uploaded_files:
+            st.error("⚠️ Please upload at least one attachment file.")
         else:
+            # Read Excel
             recipients = pd.read_excel(uploaded_excel).dropna(subset=["Email"])
+            uploaded_file_map = {file.name: file for file in uploaded_files}
+            
             results = []
             progress_bar = st.progress(0)
             total_recipients = len(recipients)
-        
+
             for index, row in recipients.iterrows():
                 name = row.get("Name", "User")
                 email = row["Email"]
-            
                 attachment_paths = []
+
+                # Collect matching attachments from uploaded files
                 for col in recipients.columns:
                     if "Attachment" in col and isinstance(row[col], str) and row[col].strip():
-                        file_path = os.path.join(os.getcwd(), row[col])  # Convert to full path
-                        if os.path.exists(file_path):
-                            attachment_paths.append(row[col])
+                        filename = os.path.basename(row[col].strip())
+                        if filename in uploaded_file_map:
+                            file = uploaded_file_map[filename]
+                            temp_path = os.path.join(os.getcwd(), filename)
+                            with open(temp_path, "wb") as f:
+                                f.write(file.getbuffer())
+                            attachment_paths.append(temp_path)
                         else:
-                            st.warning(f"⚠️ Attachment not found: {row[col]}")
+                            st.warning(f"⚠️ Attachment '{filename}' not uploaded, skipping for {email}")
 
+                # Send email if at least one valid attachment found
                 if attachment_paths:
-                    result = send_email_dynamic(email, name, attachment_paths)
+                    result = send_email_single(email, name, attachment_paths, email_body, email_subject, outlook_user, outlook_password)
                 else:
                     result = f"⚠️ No valid attachments found for {email}, skipping."
+                
                 results.append(result)
                 progress_bar.progress((index + 1) / total_recipients)
-        
+
             for res in results:
                 st.write(res)
+
+
