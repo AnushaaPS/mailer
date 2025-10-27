@@ -143,19 +143,21 @@ elif app_mode == "Dynamic Attachments":
             results = []
             progress_bar = st.progress(0)
             total_recipients = len(recipients)
-        
+
             for index, row in recipients.iterrows():
                 name = row.get("Name", "User")
                 email = row["Email"]
-            
+
                 attachment_paths = []
                 for col in recipients.columns:
                     if "Attachment" in col and isinstance(row[col], str) and row[col].strip():
-                        file_path = os.path.join(os.getcwd(), row[col])  # Convert to full path
+                        file_path = row[col].strip().strip('"').strip("'")
+
+                        # ✅ Use real Windows path directly if it starts with drive letter
                         if os.path.exists(file_path):
-                            attachment_paths.append(row[col])
+                            attachment_paths.append(file_path)
                         else:
-                            st.warning(f"⚠️ Attachment not found: {row[col]}")
+                            st.warning(f"⚠️ Attachment not found: {file_path}")
 
                 if attachment_paths:
                     result = send_email_dynamic(email, name, attachment_paths)
@@ -163,7 +165,9 @@ elif app_mode == "Dynamic Attachments":
                     result = f"⚠️ No valid attachments found for {email}, skipping."
                 results.append(result)
                 progress_bar.progress((index + 1) / total_recipients)
-        
+
             for res in results:
                 st.write(res)
+
+
 
