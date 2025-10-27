@@ -67,7 +67,7 @@ def send_email_dynamic(to_email, name, attachment_paths, email_body, email_subje
         personalized_body = email_body.replace("[Name]", name) if email_body else ""
         msg.attach(MIMEText(personalized_body, "plain"))
 
-        for file_path in attachment_paths:
+    for file_path in attachment_paths:
     full_path = os.path.abspath(file_path.strip().replace('"', '').replace("'", ''))
     if os.path.exists(full_path):
         with open(full_path, "rb") as attachment:
@@ -168,4 +168,5 @@ elif app_mode == "Dynamic Attachments":
 
             for res in results:
                 st.write(res)
+
 
