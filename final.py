@@ -68,20 +68,17 @@ def send_email_dynamic(to_email, name, attachment_paths, email_body, email_subje
         msg.attach(MIMEText(personalized_body, "plain"))
 
         for file_path in attachment_paths:
-            clean_path = str(file_path).strip().strip('"').strip("'")
-            # ✅ Handle absolute vs relative paths correctly
-            if not os.path.isabs(clean_path):
-                clean_path = os.path.join(os.getcwd(), clean_path)
+    full_path = os.path.abspath(file_path.strip().replace('"', '').replace("'", ''))
+    if os.path.exists(full_path):
+        with open(full_path, "rb") as attachment:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(full_path)}")
+            msg.attach(part)
+    else:
+        st.warning(f"⚠️ Attachment not found: {full_path}")
 
-            if os.path.exists(clean_path):
-                with open(clean_path, "rb") as attachment:
-                    part = MIMEBase("application", "octet-stream")
-                    part.set_payload(attachment.read())
-                    encoders.encode_base64(part)
-                    part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(clean_path)}")
-                    msg.attach(part)
-            else:
-                st.warning(f"⚠️ Attachment not found: {clean_path}")
 
         server.sendmail(outlook_user, to_email, msg.as_string())
         server.quit()
@@ -154,12 +151,13 @@ elif app_mode == "Dynamic Attachments":
 
                 attachment_paths = []
                 for col in recipients.columns:
-                    if "Attachment" in col and isinstance(row[col], str) and row[col].strip():
-                        file_path = str(row[col]).strip().strip('"').strip("'")
-                        if os.path.exists(file_path):
-                            attachment_paths.append(file_path)
-                        else:
-                            st.warning(f"⚠️ Attachment not found: {file_path}")
+    if "Attachment" in col and isinstance(row[col], str) and row[col].strip():
+        full_path = os.path.abspath(row[col].strip().replace('"', '').replace("'", ''))
+        if os.path.exists(full_path):
+            attachment_paths.append(full_path)
+        else:
+            st.warning(f"⚠️ Attachment not found: {full_path}")
+
 
                 if attachment_paths:
                     result = send_email_dynamic(email, name, attachment_paths, email_body, email_subject, outlook_user, outlook_password)
@@ -170,3 +168,4 @@ elif app_mode == "Dynamic Attachments":
 
             for res in results:
                 st.write(res)
+
