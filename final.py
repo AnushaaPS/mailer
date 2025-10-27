@@ -129,7 +129,7 @@ if app_mode == "Same Attachments for All":
             for res in results:
                 st.write(res)
 
-elif mode == "Dynamic Attachments":
+elif app_mode == "Dynamic Attachments":
     uploaded_excel = st.file_uploader("📂 Upload Excel File", type=["xlsx"])
     
     if st.button("🚀 Send Emails"):
@@ -161,6 +161,7 @@ elif mode == "Dynamic Attachments":
 
             for res in results:
                 st.write(res)
+
 
 
 
